@@ -1,8 +1,13 @@
 import axios from "axios";
 
-// ── Update this to your ngrok URL when testing on mobile ─────────────────────
-const BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
-const SERVER_URL = import.meta.env.VITE_API_URL; // for building avatar image URLs
+// ── No env needed! Same domain in production ──────────────────────────────────
+const BASE_URL = import.meta.env.DEV
+  ? `${import.meta.env.VITE_API_URL}/api` // development: http://localhost:5000/api
+  : "/api"; // production:  /api (same domain)
+
+const SERVER_URL = import.meta.env.DEV
+  ? import.meta.env.VITE_API_URL // development: http://localhost:5000
+  : ""; // production:  same domain
 
 const getToken = () => localStorage.getItem("token");
 
@@ -11,11 +16,9 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// ── Your existing authMiddleware reads: req.headers.authorization directly ────
-// It does NOT expect "Bearer " prefix — so we send the raw token.
 api.interceptors.request.use((config) => {
   const token = getToken();
-  if (token) config.headers.Authorization = token; // raw token, no "Bearer "
+  if (token) config.headers.Authorization = token;
   return config;
 });
 
@@ -46,7 +49,6 @@ export const uploadAvatar = (formData) =>
     headers: { "Content-Type": "multipart/form-data" },
   });
 
-// Build the full image URL from the stored relative path like "/uploads/avatars/1_123.jpg"
 export const getAvatarUrl = (profilePicturePath) => {
   if (!profilePicturePath) return null;
   if (profilePicturePath.startsWith("http")) return profilePicturePath;

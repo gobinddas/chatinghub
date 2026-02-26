@@ -16,27 +16,49 @@ if (!fs.existsSync(avatarDir)) {
 }
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5000",
+  "https://chattinghub.bluebugsoft.com", // ← your subdomain
+  "https://www.chattinghub.bluebugsoft.com",
+];
+
 app.use(
   cors({
-    origin: "*",
+    origin: function (origin, callback) {
+      // allow requests with no origin (mobile apps, curl, postman)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   }),
 );
+
 app.use(express.json());
 
-// Serve uploaded avatars as static files
-// e.g. http://YOUR_IP:5000/uploads/avatars/filename.jpg
+// ─── Static Files ─────────────────────────────────────────────────────────────
+// Serve uploaded avatars
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
+
+// ── Serve Vue dist (ADD THIS) ─────────────────────────────────────────────────
+app.use(express.static(path.join(__dirname, "../client/dist")));
 
 // ─── Socket.io ────────────────────────────────────────────────────────────────
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
+  cors: {
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
 });
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
+// ─── API Routes ───────────────────────────────────────────────────────────────
 app.use("/api/auth", require("./routes/auth"));
-app.use("/api/profile", require("./routes/profile")); // ← NEW
+app.use("/api/profile", require("./routes/profile"));
 
 const db = require("./config/db");
 
@@ -84,6 +106,13 @@ app.get("/api/messages/:userId/:targetId", (req, res) => {
       res.json(results);
     },
   );
+});
+
+// ─── Vue Router Catch-All (MUST be last route) ────────────────────────────────
+app.get("*", (req, res) => {
+  // Don't catch API or upload routes
+  if (req.path.startsWith("/api") || req.path.startsWith("/uploads")) return;
+  res.sendFile(path.join(__dirname, "../client/dist", "index.html"));
 });
 
 // ─── Socket.io Logic ──────────────────────────────────────────────────────────
