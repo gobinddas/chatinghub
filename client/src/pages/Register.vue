@@ -8,6 +8,7 @@
         type="text"
         placeholder="Username"
         class="w-full p-3 mb-4 border rounded"
+        :disabled="loading"
       />
 
       <input
@@ -15,6 +16,7 @@
         type="email"
         placeholder="Email"
         class="w-full p-3 mb-4 border rounded"
+        :disabled="loading"
       />
 
       <input
@@ -22,25 +24,31 @@
         type="password"
         placeholder="Password"
         class="w-full p-3 mb-4 border rounded"
+        :disabled="loading"
       />
+
+      <p v-if="errorMsg" class="text-red-500 text-sm mb-3 text-center">
+        {{ errorMsg }}
+      </p>
 
       <button
         @click="register"
-        class="w-full bg-green-500 text-white p-3 rounded hover:bg-green-600"
+        :disabled="loading"
+        class="w-full bg-green-500 text-white p-3 rounded hover:bg-green-600 disabled:opacity-50"
       >
-        Register
+        {{ loading ? "Registering..." : "Register" }}
       </button>
 
       <p class="text-center mt-4 text-sm">
         Already have account?
-        <router-link to="/" class="text-green-500"> Login </router-link>
+        <router-link to="/" class="text-green-500">Login</router-link>
       </p>
     </div>
   </div>
 </template>
 
 <script>
-import axios from "axios";
+import { registerUser } from "../api/api.js"; // ← adjust path if needed
 
 export default {
   data() {
@@ -48,21 +56,37 @@ export default {
       username: "",
       email: "",
       password: "",
+      loading: false,
+      errorMsg: "",
     };
   },
   methods: {
     async register() {
+      this.errorMsg = "";
+
+      // Basic validation
+      if (!this.username || !this.email || !this.password) {
+        this.errorMsg = "Please fill in all fields.";
+        return;
+      }
+
+      if (this.password.length < 6) {
+        this.errorMsg = "Password must be at least 6 characters.";
+        return;
+      }
+
+      this.loading = true;
       try {
-        await axios.post("http://192.168.100.184:5000/api/auth/register", {
-          username: this.username,
-          email: this.email,
-          password: this.password,
-        });
+        await registerUser(this.username, this.email, this.password); // ← from api.js
 
         alert("Registration successful!");
         this.$router.push("/");
       } catch (err) {
-        alert("Registration failed");
+        this.errorMsg =
+          err.response?.data?.message ||
+          "Registration failed. Please try again.";
+      } finally {
+        this.loading = false;
       }
     },
   },

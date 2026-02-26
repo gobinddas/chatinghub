@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
 
-const socket = io("http://192.168.100.184:5000");
+const socket = io(import.meta.env.VITE_SOCKET_URL);
 
 export default socket;

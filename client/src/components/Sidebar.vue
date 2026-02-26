@@ -1,6 +1,6 @@
 <template>
   <div class="sidebar">
-    <!-- Header -->
+    <!-- Header with user info -->
     <div class="sidebar__header">
       <div class="sidebar__brand">
         <div class="sidebar__logo">
@@ -19,8 +19,62 @@
           <p class="sidebar__username">{{ currentUser?.username }}</p>
         </div>
       </div>
-      <div class="sidebar__avatar">
-        {{ currentUser?.username?.charAt(0).toUpperCase() }}
+
+      <!-- Header actions: Profile + Logout -->
+      <div class="sidebar__header-actions">
+        <!-- Profile button -->
+        <button
+          class="sidebar__icon-btn"
+          @click="goToMyProfile"
+          title="My Profile"
+        >
+          <!-- Avatar image or letter -->
+          <div class="sidebar__my-avatar">
+            <img
+              v-if="currentUser?.profile_picture"
+              :src="getAvatarUrl(currentUser.profile_picture)"
+              class="sidebar__my-avatar-img"
+              alt="avatar"
+            />
+            <span v-else class="sidebar__my-avatar-letter">
+              {{ currentUser?.username?.charAt(0).toUpperCase() }}
+            </span>
+          </div>
+        </button>
+
+        <!-- Logout button -->
+        <button
+          class="sidebar__icon-btn sidebar__icon-btn--logout"
+          @click="logout"
+          title="Logout"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9"
+              stroke="white"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <polyline
+              points="16 17 21 12 16 7"
+              stroke="white"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <line
+              x1="21"
+              y1="12"
+              x2="9"
+              y2="12"
+              stroke="white"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -71,43 +125,74 @@
       <div
         v-for="user in users"
         :key="user.id"
-        @click="selectUser(user)"
         class="user-item"
         :class="{ 'user-item--active': selectedUser?.id === user.id }"
       >
-        <!-- Avatar -->
-        <div class="user-item__avatar">
-          {{ user.username.charAt(0).toUpperCase() }}
+        <!-- Click avatar/name area to view profile -->
+        <div
+          class="user-item__avatar"
+          @click="goToProfile(user)"
+          title="View profile"
+        >
+          <img
+            v-if="user.profile_picture"
+            :src="getAvatarUrl(user.profile_picture)"
+            class="user-item__avatar-img"
+            alt=""
+          />
+          <span v-else>{{ user.username.charAt(0).toUpperCase() }}</span>
           <span
             v-if="onlineUsers.includes(String(user.id))"
             class="user-item__online-dot"
           ></span>
         </div>
 
-        <!-- Info -->
-        <div class="user-item__info">
+        <!-- Info — clicking starts chat -->
+        <div class="user-item__info" @click="selectUser(user)">
           <p class="user-item__name">{{ user.username }}</p>
-          <p class="user-item__id">#{{ user.profile_id }}</p>
+          <p class="user-item__sub">{{ user.role || "#" + user.profile_id }}</p>
         </div>
 
         <!-- Online badge -->
         <span
           v-if="onlineUsers.includes(String(user.id))"
           class="user-item__badge"
+          >● Online</span
         >
-          ● Online
-        </span>
       </div>
 
       <p v-if="!loading && users.length === 0" class="sidebar__empty">
         No users found. Search by Profile ID to connect!
       </p>
     </div>
+
+    <!-- Logout confirm modal -->
+    <div
+      v-if="showLogoutConfirm"
+      class="logout-modal-overlay"
+      @click.self="showLogoutConfirm = false"
+    >
+      <div class="logout-modal">
+        <div class="logout-modal__icon">👋</div>
+        <h3 class="logout-modal__title">Log out?</h3>
+        <p class="logout-modal__text">
+          You'll need to sign in again to access your chats.
+        </p>
+        <div class="logout-modal__actions">
+          <button class="btn btn--danger" @click="confirmLogout">
+            Yes, Log Out
+          </button>
+          <button class="btn btn--ghost" @click="showLogoutConfirm = false">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import { getAllUsers, searchByProfileId } from "../services/api";
+import { getAllUsers, searchByProfileId, getAvatarUrl } from "../services/api";
 import socket from "../services/socket";
 
 export default {
@@ -123,6 +208,7 @@ export default {
       searchId: "",
       searchError: "",
       loading: true,
+      showLogoutConfirm: false,
     };
   },
   async mounted() {
@@ -135,6 +221,8 @@ export default {
     socket.off("onlineUsers");
   },
   methods: {
+    getAvatarUrl,
+
     async fetchUsers() {
       try {
         this.loading = true;
@@ -146,6 +234,7 @@ export default {
         this.loading = false;
       }
     },
+
     async searchUser() {
       this.searchError = "";
       if (!this.searchId.trim()) return;
@@ -157,13 +246,33 @@ export default {
         }
         this.selectUser(found);
         this.searchId = "";
-      } catch (err) {
+      } catch {
         this.searchError = "User not found with that Profile ID.";
       }
     },
+
     selectUser(user) {
       this.selectedUser = user;
       this.$emit("selectUser", user);
+    },
+
+    goToMyProfile() {
+      this.$router.push(`/profile/${this.currentUser.id}`);
+    },
+
+    goToProfile(user) {
+      this.$router.push(`/profile/${user.id}`);
+    },
+
+    logout() {
+      this.showLogoutConfirm = true;
+    },
+
+    confirmLogout() {
+      socket.disconnect();
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      this.$router.push("/login");
     },
   },
 };
@@ -180,61 +289,112 @@ export default {
   border-right: 1px solid #d6eaff;
   height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 /* Header */
 .sidebar__header {
   background: linear-gradient(135deg, #1a6fc4 0%, #38b6ff 100%);
-  padding: 1.1rem 1.25rem;
+  padding: 0.875rem 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  gap: 0.5rem;
 }
 
 .sidebar__brand {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .sidebar__logo {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   background: rgba(255, 255, 255, 0.2);
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(4px);
+  flex-shrink: 0;
 }
 
 .sidebar__app-name {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 800;
   color: white;
-  letter-spacing: -0.3px;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .sidebar__username {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.8);
-  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.sidebar__avatar {
-  width: 36px;
-  height: 36px;
+.sidebar__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.sidebar__icon-btn {
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
-  color: white;
-  font-weight: 700;
-  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: background 0.2s;
+  padding: 0;
+  overflow: hidden;
+}
+
+.sidebar__icon-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.sidebar__icon-btn--logout {
+  background: rgba(231, 76, 60, 0.3);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.sidebar__icon-btn--logout:hover {
+  background: rgba(231, 76, 60, 0.5);
+}
+
+/* My avatar in header */
+.sidebar__my-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.sidebar__my-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sidebar__my-avatar-letter {
+  color: white;
+  font-weight: 800;
+  font-size: 0.9rem;
 }
 
 /* Search */
@@ -289,22 +449,17 @@ export default {
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
-  transition:
-    opacity 0.2s,
-    transform 0.1s;
+  transition: opacity 0.2s;
   white-space: nowrap;
 }
 
 .search-box__btn:hover {
   opacity: 0.9;
-  transform: scale(1.03);
 }
-
 .search-error {
   margin-top: 0.4rem;
   font-size: 0.75rem;
   color: #e05252;
-  padding-left: 0.25rem;
 }
 
 /* Section label */
@@ -340,11 +495,6 @@ export default {
 .sidebar__list::-webkit-scrollbar {
   width: 4px;
 }
-
-.sidebar__list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
 .sidebar__list::-webkit-scrollbar-thumb {
   background: #c2deff;
   border-radius: 2px;
@@ -419,7 +569,15 @@ export default {
   justify-content: center;
   position: relative;
   flex-shrink: 0;
+  overflow: hidden;
   box-shadow: 0 2px 8px rgba(56, 182, 255, 0.3);
+  cursor: pointer;
+}
+
+.user-item__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-item__online-dot {
@@ -436,6 +594,7 @@ export default {
 .user-item__info {
   flex: 1;
   min-width: 0;
+  cursor: pointer;
 }
 
 .user-item__name {
@@ -447,10 +606,13 @@ export default {
   text-overflow: ellipsis;
 }
 
-.user-item__id {
+.user-item__sub {
   font-size: 0.75rem;
   color: #7fb1d4;
   margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-item__badge {
@@ -468,11 +630,98 @@ export default {
   line-height: 1.5;
 }
 
-/* Mobile full-width */
+/* Logout modal */
+.logout-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(4px);
+}
+
+.logout-modal {
+  background: white;
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 300px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: pop-in 0.2s ease-out;
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.logout-modal__icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.logout-modal__title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1a3a5c;
+  margin-bottom: 0.4rem;
+}
+
+.logout-modal__text {
+  font-size: 0.85rem;
+  color: #7fb1d4;
+  margin-bottom: 1.25rem;
+  line-height: 1.4;
+}
+
+.logout-modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1.25rem;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn--danger {
+  background: linear-gradient(135deg, #c0392b, #e74c3c);
+  color: white;
+  box-shadow: 0 2px 10px rgba(231, 76, 60, 0.3);
+}
+
+.btn--danger:hover {
+  transform: scale(1.02);
+}
+
+.btn--ghost {
+  background: #f0f7ff;
+  color: #6ba3d6;
+  border: 1.5px solid #d6eaff;
+}
+
+/* Mobile */
 @media (max-width: 767px) {
   .sidebar {
     max-width: 100%;
-    width: 100%;
     min-width: unset;
   }
 }

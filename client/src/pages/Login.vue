@@ -8,6 +8,7 @@
         type="email"
         placeholder="Email"
         class="w-full p-3 mb-4 border rounded"
+        :disabled="loading"
       />
 
       <input
@@ -15,52 +16,66 @@
         type="password"
         placeholder="Password"
         class="w-full p-3 mb-4 border rounded"
+        :disabled="loading"
       />
+
+      <p v-if="errorMsg" class="text-red-500 text-sm mb-3 text-center">
+        {{ errorMsg }}
+      </p>
 
       <button
         @click="login"
-        class="w-full bg-green-500 text-white p-3 rounded hover:bg-green-600"
+        :disabled="loading"
+        class="w-full bg-green-500 text-white p-3 rounded hover:bg-green-600 disabled:opacity-50"
       >
-        Login
+        {{ loading ? "Logging in..." : "Login" }}
       </button>
 
       <p class="text-center mt-4 text-sm">
         Don't have account?
-        <router-link to="/register" class="text-green-500">
-          Register
-        </router-link>
+        <router-link to="/register" class="text-green-500"
+          >Register</router-link
+        >
       </p>
     </div>
   </div>
 </template>
 
 <script>
-import axios from "axios";
+import { loginUser } from "../api/api.js"; // ← adjust path if needed
 
 export default {
   data() {
     return {
       email: "",
       password: "",
+      loading: false,
+      errorMsg: "",
     };
   },
   methods: {
     async login() {
+      this.errorMsg = "";
+
+      // Basic validation
+      if (!this.email || !this.password) {
+        this.errorMsg = "Please fill in all fields.";
+        return;
+      }
+
+      this.loading = true;
       try {
-        const res = await axios.post(
-          "http://192.168.100.184:5000/api/auth/login",
-          {
-            email: this.email,
-            password: this.password,
-          },
-        );
+        const res = await loginUser(this.email, this.password); // ← from api.js
 
         localStorage.setItem("user", JSON.stringify(res.data.user));
         localStorage.setItem("token", res.data.token);
 
         this.$router.push("/chat");
       } catch (err) {
-        alert("Login failed");
+        this.errorMsg =
+          err.response?.data?.message || "Login failed. Please try again.";
+      } finally {
+        this.loading = false;
       }
     },
   },

@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+server/.env
+client/.env.production
+
+# Build output (only on development branch)
+client/dist/
