@@ -1,0 +1,4 @@
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/bluebugs/chattinghub.bluebugsoft.com/
+    - /bin/cp -R * $DEPLOYPATH
