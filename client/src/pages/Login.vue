@@ -42,7 +42,7 @@
 </template>
 
 <script>
-import { loginUser } from "../api/api.js"; // ← adjust path if needed
+import { loginUser } from "../services/api.js"; // ← adjust path if needed
 
 export default {
   data() {

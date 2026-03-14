@@ -48,7 +48,7 @@
 </template>
 
 <script>
-import { registerUser } from "../api/api.js"; // ← adjust path if needed
+import { registerUser } from "../services/api.js"; // ← adjust path if needed
 
 export default {
   data() {
